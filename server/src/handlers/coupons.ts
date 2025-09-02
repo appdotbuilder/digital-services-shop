@@ -1,22 +1,35 @@
+import { db } from '../db';
+import { couponsTable } from '../db/schema';
 import { type Coupon, type CreateCouponInput } from '../schema';
 
 export async function createCoupon(input: CreateCouponInput): Promise<Coupon> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to create a new discount coupon.
-    // Should validate coupon code uniqueness and set initial used_count to 0.
-    return Promise.resolve({
-        id: 0,
-        code: input.code,
-        type: input.type,
-        value: input.value,
-        minimum_order_amount: input.minimum_order_amount || null,
-        usage_limit: input.usage_limit || null,
-        used_count: 0,
-        is_active: true,
-        expires_at: input.expires_at || null,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as Coupon);
+    try {
+        // Insert coupon record
+        const result = await db.insert(couponsTable)
+            .values({
+                code: input.code,
+                type: input.type,
+                value: input.value.toString(), // Convert number to string for numeric column
+                minimum_order_amount: input.minimum_order_amount?.toString() || null,
+                usage_limit: input.usage_limit,
+                used_count: 0, // Always start with 0
+                is_active: true, // Default to active
+                expires_at: input.expires_at || null
+            })
+            .returning()
+            .execute();
+
+        // Convert numeric fields back to numbers before returning
+        const coupon = result[0];
+        return {
+            ...coupon,
+            value: parseFloat(coupon.value), // Convert string back to number
+            minimum_order_amount: coupon.minimum_order_amount ? parseFloat(coupon.minimum_order_amount) : null
+        };
+    } catch (error) {
+        console.error('Coupon creation failed:', error);
+        throw error;
+    }
 }
 
 export async function getCoupons(): Promise<Coupon[]> {
